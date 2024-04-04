@@ -2,6 +2,5 @@ fastapi
 uvicorn
 python-multipart
 pytesseract
-azure-cosmos
 azure-storage-blob
 python-dotenv

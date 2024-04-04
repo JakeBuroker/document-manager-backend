@@ -5,6 +5,7 @@ import io  # io module for handling byte streams
 from azure.storage.blob import BlobServiceClient  # Azure Blob Storage SDK
 import os  # os module for environment variables
 import psycopg2  # PostgreSQL database adapter
+import uuid  # Import UUID library
 from dotenv import load_dotenv  # For loading environment variables from .env file
 load_dotenv()  # Load environment variables from .env file
 
@@ -57,18 +58,22 @@ def read_root():
 @app.post("/upload/")
 async def create_upload_file(file: UploadFile = File(...)):
     try:
-        blob_client = blob_service_client.get_blob_client(container=CONTAINER_NAME, blob=file.filename) # Get a blob client
-        contents = await file.read() # Read the file contents
+        # Generate a unique name for the blob using UUID
+        unique_filename = f"{uuid.uuid4()}_{file.filename}" # Append UUID to filename
+        blob_client = blob_service_client.get_blob_client(container=CONTAINER_NAME, blob=unique_filename) # Use the unique filename
+        contents = await file.read()
 
-        blob_client.upload_blob(contents) # Upload the file to Azure Blob Storage
+        blob_client.upload_blob(contents)
+
+        image = Image.open(io.BytesIO(contents))
+        text = image_to_string(image)
+
+        # Construct the unique blob URL; adjust this according to how you want to structure your URL
+        blob_url = f"https://{blob_service_client.account_name}.blob.core.windows.net/{CONTAINER_NAME}/{unique_filename}"
+
+        # Save the extracted text to PostgreSQL with the unique blob URL
+        save_text_to_postgres(file.filename, blob_url, text)
         
-        image = Image.open(io.BytesIO(contents)) # Open the image using Pillow
-    
-        text = image_to_string(image) # Extract text from the image using pytesseract
-        
-        # Save the extracted text to PostgreSQL
-        save_text_to_postgres(file.filename, "blob", text)  # Pass the placeholder blob URL as the second argument
-        
-        return {"filename": file.filename, "text": text}
+        return {"filename": file.filename, "blob_url": blob_url, "text": text}
     except Exception as e:
         return {"error": str(e)}
