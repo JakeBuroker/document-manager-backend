@@ -1,4 +1,5 @@
-from fastapi import FastAPI, File, UploadFile  # FastAPI for creating the API
+from fastapi import FastAPI, File, UploadFile, HTTPException  # FastAPI for creating the API
+from fastapi.middleware.cors import CORSMiddleware  # CORS middleware for FastAPI
 from pytesseract import image_to_string  # Pytesseract for OCR
 from PIL import Image  # To open and process images
 import io  # io module for handling byte streams
@@ -15,19 +16,30 @@ CONTAINER_NAME = os.getenv("CONTAINER_NAME")
 DATABASE_NAME = os.getenv("DATABASE_NAME")
 DATABASE_USER = os.getenv("DATABASE_USER")
 PORT = os.getenv("PORT")
+DOMAIN = os.getenv("DOMAIN")
 
 # Initialize Azure Blob Service Client
 blob_service_client = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
 
+app = FastAPI()
+
+# CORS middleware configuration to allow requests from the frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[DOMAIN],
+    allow_credentials=True,
+    allow_methods=["*"], 
+    allow_headers=["*"],
+)
+
 # Function to save OCR text to PostgreSQL
 def save_text_to_postgres(filename, blob_url, text):
-
     try:
         # Establish connection to PostgreSQL database
         connection = psycopg2.connect(
             dbname=DATABASE_NAME,
             user=DATABASE_USER,
-            password="",
+            password="", 
             host="localhost",
             port=PORT
         )
@@ -77,10 +89,7 @@ def get_text_from_postgres_by_id(document_id):
         print(f"Error retrieving document from PostgreSQL: {e}")
         return None
 
-# Initialize FastAPI app instance
-app = FastAPI()
-
-# GET endpoint for retrieving documents by ID
+# Initialize FastAPI app instance and define endpoints
 @app.get("/documents/{document_id}")
 def get_document(document_id: int):
     document_details = get_text_from_postgres_by_id(document_id)
@@ -89,7 +98,6 @@ def get_document(document_id: int):
     else:
         raise HTTPException(status_code=404, detail="Document not found")
     
-# POST endpoint for uploading and processing files
 @app.post("/upload/")
 async def create_upload_file(file: UploadFile = File(...)):
     try:
@@ -97,7 +105,7 @@ async def create_upload_file(file: UploadFile = File(...)):
         unique_filename = f"{uuid.uuid4()}_{file.filename}"
         
         # Upload the file to Azure Blob Storage
-        blob_client = blob_service_client.get_blob_client(container=CONTAINER_NAME, blob=unique_filename) # Append UUID to filename
+        blob_client = blob_service_client.get_blob_client(container=CONTAINER_NAME, blob=unique_filename)
         contents = await file.read()
         blob_client.upload_blob(contents)
         
