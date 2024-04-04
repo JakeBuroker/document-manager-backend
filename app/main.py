@@ -16,22 +16,28 @@ CONTAINER_NAME = os.getenv("CONTAINER_NAME")
 DATABASE_NAME = os.getenv("DATABASE_NAME")
 DATABASE_USER = os.getenv("DATABASE_USER")
 PORT = os.getenv("PORT")
-DOMAIN = os.getenv("DOMAIN")
+DEV_DOMAIN = os.getenv("DEV_DOMAIN")
 
 # Initialize Azure Blob Service Client
 blob_service_client = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
 
 app = FastAPI()
 
+allowed_origins = [
+    DEV_DOMAIN, 
+]
+
+
 # CORS middleware configuration to allow requests from the frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[DOMAIN],
+    allow_origins=[
+        DEV_DOMAIN 
+    ],
     allow_credentials=True,
-    allow_methods=["*"], 
-    allow_headers=["*"],
+    allow_methods=["*"],  # This allows all methods
+    allow_headers=["*"],  # This allows all headers
 )
-
 # Function to save OCR text to PostgreSQL
 def save_text_to_postgres(filename, blob_url, text):
     try:
