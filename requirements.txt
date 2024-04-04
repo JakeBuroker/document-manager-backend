@@ -4,5 +4,5 @@ python-multipart
 pytesseract
 azure-cosmos
 azure-storage-blob
+dotenv
 azure-identity
-azure-cognitiveservices-vision-computervision
